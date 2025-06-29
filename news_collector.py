@@ -58,6 +58,7 @@ rss_feeds = [
 ]
 
 def collect_articles():
+    print("🟢 Collecting new articles from feeds...") 
     connection = sqlite3.connect("database.db")
     cursor = connection.cursor()
 
@@ -67,13 +68,20 @@ def collect_articles():
             article_title = entry.title.lower()
 
             if any(keyword.lower() in article_title for keyword in KEYWORDS):
-                # Insert article into the database
-                cursor.execute('''
-                    INSERT INTO articles (title, link, published)
-                    VALUES (?, ?, ?)
-                ''', (entry.title, entry.link, entry.published))
+                # Check if article link already exists in the database
+                cursor.execute("SELECT * FROM articles WHERE link = ?", (entry.link,))
+                existing_article = cursor.fetchone()
 
-                print(f"Saved: {entry.title}")
+                if not existing_article:
+                    # If not a duplicate, save it
+                    cursor.execute('''
+                        INSERT INTO articles (title, link, published)
+                        VALUES (?, ?, ?)
+                    ''', (entry.title, entry.link, entry.published))
+
+                    print(f"✅ Saved: {entry.title}")
+                else:
+                    print(f"⚠️ Skipped duplicate: {entry.title}")
 
     connection.commit()
     connection.close()
@@ -89,7 +97,7 @@ import time
 
 def job():
     print("Running scheduled news collection...")
-    collect_and_store_articles()  # Call your existing function here
+    collect_articles()  # Call your existing function here
 
 # Schedule the job daily at 11:00 AM
 schedule.every().day.at("11:00").do(job)
