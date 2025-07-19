@@ -1,4 +1,15 @@
+import os
 import sqlite3
+import feedparser
+import schedule
+import time
+from dotenv import load_dotenv
+import google.generativeai as genai
+
+load_dotenv()
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+genai.configure(api_key=GOOGLE_API_KEY)
+model = genai.GenerativeModel('gemini-pro')
 
 def create_database():
     connection = sqlite3.connect("database.db")
@@ -154,6 +165,37 @@ create_database()
 
 # Collect articles and save them
 collect_articles()
+
+def summarize_articles():
+    conn = sqlite3.connect("database.db")
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT id, title, link FROM articles
+        WHERE link NOT IN (SELECT url FROM news)
+    ''')
+    articles = cursor.fetchall()
+
+    for article in articles:
+        article_id, title, link = article
+        print(f" Summarizing: {title}")
+
+        try:
+            prompt = f"Summarize this forestry/environment-related article in 250 concise words :\nTitle: {title}\nLink: {link}"
+            response = model.generate_content(prompt)
+            summary = response.text.strip()
+
+            cursor.execute(
+                "INSERT INTO news (title, url, summary) VALUES (?, ?, ?)",
+                (title, link, summary)
+            )
+            conn.commit()
+            print(f" Summary saved for: {title}")
+
+        except Exception as e:
+            print(f"❌ Error summarizing {title}: {e}")
+
+    conn.close()
 
 import schedule
 import time

@@ -1,9 +1,14 @@
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template_string, request, redirect, url_for
 import sqlite3
 import smtplib
 from email.message import EmailMessage
 from dotenv import load_dotenv
 import os
+import google.generativeai as genai
+
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+genai.configure(api_key="AIzaSyCnNw-CNK0xvBynnY5BWobT9_aX9uNtj8A")
+model = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
 app = Flask(__name__)
 
@@ -120,20 +125,44 @@ def reject_article(article_id):
 
 @app.route('/summarize/<int:article_id>')
 def summarize_article(article_id):
-    connection = sqlite3.connect("database.db")
-    cursor = connection.cursor()
+    try:
+        conn = sqlite3.connect("database.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT title, content FROM articles WHERE id=?", (article_id,))
+        result = cursor.fetchone()
+        conn.close()
 
-    cursor.execute("SELECT title FROM articles WHERE id = ?", (article_id,))
-    result = cursor.fetchone()
+        if not result:
+            print(f"⚠️ No article found with ID {article_id}")
+            return redirect(url_for("index"))
 
-    if result:
-        title = result[0]
-        summary = f"This is a placeholder summary for: {title}"
-        cursor.execute("UPDATE articles SET summary = ? WHERE id = ?", (summary, article_id))
-        connection.commit()
+        title, content = result
+        print(f"🔍 Summarizing: {title}")
 
-    connection.close()
-    return "<script>window.location.href='/'</script>"
+        # Gemini prompt
+        prompt = f"""
+Summarize this news article in under 250 words. Keep it factual and readable:
+
+Title: {title}
+Content: {content}
+"""
+
+        # Generate summary from Gemini
+        response = model.generate_content(prompt)
+        summary = response.text.strip()
+        print(f"✅ Summary Generated: {summary[:100]}...")  # Show first 100 chars for debug
+
+        # Save summary to DB
+        conn = sqlite3.connect("database.db")
+        cursor = conn.cursor()
+        cursor.execute("UPDATE articles SET summary=? WHERE id=?", (summary, article_id))
+        conn.commit()
+        conn.close()
+
+    except Exception as e:
+        print(f"❌ Error summarizing: {e}")
+
+    return redirect(url_for("index"))
 
 
 def send_notification_email(title, link):
