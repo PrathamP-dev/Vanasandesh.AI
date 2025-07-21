@@ -12,7 +12,7 @@ Built with a lightweight tech stack, it offers a moderation dashboard, keyword-b
 - 📋 **Moderation Dashboard** built with Flask for human review and approval
 - 🗃️ **SQLite Database** to store articles and moderation statuses
 - 📨 **Email Notifications** on article approvals (configurable)
-- ✨ **AI Summarization-ready** (OpenAI integration)
+- ✨ **AI Summarization-ready** (GeminiAI integration)
 - 🕑 **Scheduled Automation** via Python `schedule` library
 - 🌐 Cleanly version-controlled using Git & GitHub
 
